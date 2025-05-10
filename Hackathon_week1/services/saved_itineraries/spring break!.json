@@ -1,0 +1,49 @@
+{
+  "prefs": {
+    "destination": "Amsterdam",
+    "interests": [
+      "nightlife"
+    ],
+    "budget_level": "budget",
+    "trip_duration": 3
+  },
+  "data": {
+    "narrative": {
+      "main_narrative": "\n# Your 3-Day Budget Adventure in Amsterdam\n\nImagine yourself arriving in the vibrant destination of Amsterdam, where 3 days of nightlife experiences await you. This personalized journey combines the best of what Amsterdam has to offer for travelers who love nightlife.\n\n## Trip Highlights\n\nAmsterdam offers the perfect blend of experiences for your interests. Each day will bring new discoveries and memories to cherish.\n\n## What Makes This Trip Special\n\nThis itinerary is specially crafted to match your interest in nightlife while keeping to a budget budget. You'll get to experience authentic local culture, savor delicious cuisine, and create unforgettable memories.\n\n## Budget Overview\n\n* Accommodations: $35.0 per night\n* Food: $22.5 per day\n* Activities: $10.0 per day\n* Transportation: $10.0 per day\n* Total Estimated Cost: $255.75 for the entire trip\n\nAre you ready to discover the magic of Amsterdam? Let's dive into your day-by-day adventure!\n",
+      "daily_plans": [
+        {
+          "day": 1,
+          "content": "\n# Day 1 - Amsterdam Adventure\n\n## Morning\n* Start your day with a visit to Amsterdam Nightclub\n* Enjoy breakfast at a local caf\u00e9\n\n## Afternoon\n* Discover more of Amsterdam\n* Have lunch at a budget restaurant featuring local cuisine\n\n## Evening\n* Relax and enjoy the Amsterdam atmosphere\n* Dinner at a budget spot known for its nightlife offerings\n"
+        },
+        {
+          "day": 2,
+          "content": "\n# Day 2 - Amsterdam Adventure\n\n## Morning\n* Start your day with a visit to Evening Entertainment in Amsterdam\n* Enjoy breakfast at a local caf\u00e9\n\n## Afternoon\n* Night Tour of Amsterdam\n* Have lunch at a budget restaurant featuring local cuisine\n\n## Evening\n* Relax and enjoy the Amsterdam atmosphere\n* Dinner at a budget spot known for its nightlife offerings\n"
+        },
+        {
+          "day": 3,
+          "content": "\n# Day 3 - Amsterdam Adventure\n\n## Morning\n* Start your day with a visit to Discover Amsterdam Nightlife\n* Enjoy breakfast at a local caf\u00e9\n\n## Afternoon\n* Discover more of Amsterdam\n* Have lunch at a budget restaurant featuring local cuisine\n\n## Evening\n* Relax and enjoy the Amsterdam atmosphere\n* Dinner at a budget spot known for its nightlife offerings\n"
+        }
+      ],
+      "budget_narrative": "\n# Budget Breakdown for Your Amsterdam Adventure\n\n## Accommodation\n* Budget level: $35.0 per night\n* Total for 3 nights: $105.0\n\n## Food\n* Daily budget: $22.5\n* Total for 3 days: $67.5\n\n## Transportation\n* Daily average: $10.0\n* Total: $30.0\n\n## Activities and Attractions\n* Daily budget: $10.0\n* Total: $30.0\n\n## Total Trip Cost\n* $255.75 for your 3-day adventure\n\nThis budget is based on budget level travel in Amsterdam, with a focus on nightlife.\n"
+    },
+    "budget": {
+      "per_day": {
+        "accommodation": 35.0,
+        "food": 22.5,
+        "transportation": 10.0,
+        "activities": 10.0,
+        "total_daily": 77.5
+      },
+      "total": {
+        "accommodation": 105.0,
+        "food": 67.5,
+        "transportation": 30.0,
+        "activities": 30.0,
+        "adjustments": 23.25,
+        "grand_total": 255.75
+      },
+      "budget_level": "budget",
+      "region_type": "moderate"
+    }
+  }
+}
