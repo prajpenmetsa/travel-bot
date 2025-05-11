@@ -1,4 +1,4 @@
 {
-    "OPENTRIPMAP_API_KEY": "open_trip_map_api",
+    "FOURSQUARE_API_KEY": "open_trip_map_api",
     "GEMINI_API_KEY": "api_key_gemini"
   }
