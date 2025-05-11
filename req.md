@@ -68,10 +68,24 @@ The Travel Itinerary Pitcher is a GenAI-powered application that creates persona
    - **F6.3**: Show day-by-day breakdown
    - **F6.4**: Present budget information visually
 
+7. **Evaluation Service**
+   - **F7.1**: Compute sub-scores (interest coverage, daily pacing, diversity, budget realism, region realism, narrative quality, feasibility)
+   - **F7.2**: Apply configurable weights and return a single 0-100 composite score
+   - **F7.3**: Expose per-metric breakdown so the UI can explain why a trip earned its score
+   - **F7.4**: Accept plug-in baselines / heuristics (e.g., city cost tables) without changing core logic
+   - **F7.5**: Gracefully degrade when optional GenAI sentiment check is unavailable (defaults to neutral score)
+
+8. **Itinerary Chat Service**
+   - **F8.1**: start_session() – load narrative + budget into context and return a unique chat_id
+   - **F8.2**: answer(chat_id, question) – generate Gemini-powered replies, scoped to the user’s itinerary
+   - **F8.3**: Detect general-knowledge vs itinerary-specific queries and adapt the prompt accordingly
+   - **F8.4**: Scrape & cache supporting web content (respect robots.txt, rotate user-agents, retry with back-off)
+   - **F8.5**: Maintain short chat history for follow-up context and allow reset_conversation() to clear it
+
 ### Non-Functional Requirements
 
 1. **Performance**
-   - **NF1.1**: Generate results within 15 seconds
+   - **NF1.1**: Generate results within 15 seconds (per day inputted)
    - **NF1.2**: Support multiple concurrent users
 
 2. **Usability**
@@ -109,8 +123,8 @@ The Travel Itinerary Pitcher is a GenAI-powered application that creates persona
 
 ### Constraints
 
-1. **Time**: Must be implementable within 1-day hackathon
-2. **Cost**: Should use free-tier services when possible
+1. **Time**: Must be implementable within 3-day hackathon
+2. **Cost**: Should use free-tier services
 3. **Knowledge**: Should be implementable with standard Python libraries and basic GenAI knowledge
 
 ### Evaluation Criteria
