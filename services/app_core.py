@@ -18,6 +18,7 @@ from experience_service import ExperienceService
 from budget_service import BudgetService
 from narrative_service import NarrativeService
 from evaluation_service import EvaluationService
+from itinerary_chat_service import ItineraryChatService
 
 # ------------------------------------------------------------------------------
 # Logging
@@ -110,17 +111,7 @@ def _print_summary(
 # ------------------------------------------------------------------------------
 def generate_itinerary(preferences: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Build the itinerary, budget, and quality score in one pass.
-
-    Parameters
-    ----------
-    preferences : dict
-        {
-          "destination": str,
-          "interests":  List[str],
-          "budget_level": str,
-          "trip_duration": int
-        }
+    Build itinerary, budget, quality score **and** initialise an AI chat session.
 
     Returns
     -------
@@ -128,7 +119,8 @@ def generate_itinerary(preferences: Dict[str, Any]) -> Dict[str, Any]:
         {
           "narrative": …,
           "budget":    …,
-          "scores":    …         # NEW
+          "scores":    …,
+          "chat_id":   str | None
         }
     """
     try:
@@ -136,11 +128,12 @@ def generate_itinerary(preferences: Dict[str, Any]) -> Dict[str, Any]:
         keys = load_api_keys()
 
         # ─── Instantiate services ───────────────────────────────────────────
-        loc_service = LocationService(api_key=keys["FOURSQUARE_API_KEY"])
-        exp_service = ExperienceService(loc_service)
-        bud_service = BudgetService()
-        nar_service = NarrativeService(api_key=keys["GEMINI_API_KEY"])
+        loc_service  = LocationService(api_key=keys["FOURSQUARE_API_KEY"])
+        exp_service  = ExperienceService(loc_service)
+        bud_service  = BudgetService()
+        nar_service  = NarrativeService(api_key=keys["GEMINI_API_KEY"])
         eval_service = EvaluationService()
+        chat_service = ItineraryChatService(api_key=keys["GEMINI_API_KEY"])
 
         # ─── Unpack prefs ───────────────────────────────────────────────────
         dest  = preferences["destination"]
@@ -148,23 +141,81 @@ def generate_itinerary(preferences: Dict[str, Any]) -> Dict[str, Any]:
         lvl   = preferences["budget_level"]
         days  = preferences["trip_duration"]
 
-        # ─── Pipeline ───────────────────────────────────────────────────────
+        # ─── Core pipeline ──────────────────────────────────────────────────
         exps      = exp_service.suggest_experiences(dest, ints, lvl, days)
         budget    = bud_service.calculate_budget(dest, ints, lvl, days)
         narrative = nar_service.generate_narrative(dest, ints, lvl, days, exps, budget)
-        scores    = eval_service.score(preferences, narrative, budget)   # NEW
+        scores    = eval_service.score(preferences, narrative, budget)
 
-        # ─── CLI pretty-print ──────────────────────────────────────────────
+        # ─── Initialise chat session (robust to method name) ────────────────
+        chat_id = None
+        if chat_service:
+            if hasattr(chat_service, "start_session"):
+                chat_id = chat_service.start_session(
+                    destination=dest,
+                    interests=ints,
+                    budget_level=lvl,
+                    trip_duration=days,
+                    narrative=narrative,
+                    budget=budget,
+                    experiences=exps,
+                    scores=scores,
+                )
+            elif hasattr(chat_service, "create_session"):
+                chat_id = chat_service.create_session(
+                    prefs=preferences,
+                    narrative=narrative,
+                    budget=budget,
+                    experiences=exps,
+                    scores=scores,
+                )
+            else:
+                logger.warning(
+                    "ItineraryChatService has no start_session/create_session; chat disabled."
+                )
+
+        # ─── CLI pretty-print (optional) ────────────────────────────────────
         if os.getenv("RUN_CONTEXT", "CLI") == "CLI":
             _print_summary(dest, ints, lvl, days, narrative)
-            print(f"\n★ Planner quality score: {scores['total']}/100\n")
+            print(f"\n★ Planner quality score: {scores['total']}/100")
+            if chat_id:
+                print(f"(Chat session id: {chat_id})")
+            print()
 
         return {
             "narrative": narrative,
             "budget":    budget,
             "scores":    scores,
+            "chat_id":   chat_id,
         }
 
-    except Exception as e:                      # noqa: BLE001
+    except Exception as e:                        # noqa: BLE001
         logger.exception("Failed to generate itinerary")
         raise RuntimeError(f"Unable to generate itinerary: {e}") from e
+
+
+# ------------------------------------------------------------------------------
+# Follow-up Q&A
+# ------------------------------------------------------------------------------
+def ask_itinerary_chat(chat_id: str, user_message: str) -> str:
+    """
+    Relay a user question to the existing itinerary chat session and
+    return the AI’s answer.
+
+    Parameters
+    ----------
+    chat_id : str
+        Session handle returned by `generate_itinerary`.
+    user_message : str
+        User’s question.
+
+    Returns
+    -------
+    str
+        Chatbot reply ready for display.
+    """
+    keys = load_api_keys()
+    chat_service = ItineraryChatService(api_key=keys["GEMINI_API_KEY"])
+    return chat_service.answer(chat_id, user_message)
+
+

@@ -4,21 +4,25 @@ import datetime as dt
 from pathlib import Path
 
 import streamlit as st
-from app_core import generate_itinerary, get_popular_destinations
-
+from app_core import (
+    generate_itinerary,
+    get_popular_destinations,
+    ask_itinerary_chat,      # NEW
+)
 
 # ─────────────────────────────  PAGE CONFIG  ────────────────────────────────
 st.set_page_config(page_title="Travel Itinerary Pitcher", page_icon="✈️")
 
-
 # ─────────────────────────────  SESSION STATE  ──────────────────────────────
-if "view_only" not in st.session_state:   # True when user opened a saved file
-    st.session_state["view_only"] = False
-if "last_prefs" not in st.session_state:
-    st.session_state["last_prefs"] = None
-if "last_result" not in st.session_state:
-    st.session_state["last_result"] = None
-
+defaults = {
+    "view_only": False,
+    "last_prefs": None,
+    "last_result": None,
+    "chat_id": None,
+    "chat_history": [],      # list[tuple[str,str]]  (role, message)
+}
+for k, v in defaults.items():
+    st.session_state.setdefault(k, v)
 
 # ─────────────────────────────  HELPERS  ────────────────────────────────────
 SAVE_DIR = Path("saved_itineraries")
@@ -36,7 +40,7 @@ def _load_itinerary(name: str) -> dict:
         return json.load(f)
 
 def _render_itinerary(prefs: dict, result: dict) -> None:
-    """Pretty-print an itinerary in the main panel."""
+    """Pretty-print an itinerary + score + chat panel."""
     st.header(f"🗺️  {prefs['destination'].title()} — {prefs['trip_duration']} days")
     st.write(result["narrative"]["main_narrative"])
 
@@ -47,7 +51,6 @@ def _render_itinerary(prefs: dict, result: dict) -> None:
     with st.expander("Budget breakdown"):
         st.write(result["narrative"]["budget_narrative"])
 
-    # ─── Quality score + breakdown ─────────────────────────────────────────
     if "scores" in result:
         total = result["scores"]["total"]
         st.markdown(f"### ⭐ Planner score: **{total}/100**")
@@ -60,6 +63,22 @@ def _render_itinerary(prefs: dict, result: dict) -> None:
                 pct = f"{val*100:.1f}"
                 st.write(f"- **{metric.replace('_', ' ').title()}**: {pct}")
 
+    # ─── Chat panel ─────────────────────────────────────────────────────────
+    if result.get("chat_id"):
+        st.markdown("---")
+        st.subheader("💬 Ask the itinerary AI")
+
+        # Display history
+        for role, msg in st.session_state.chat_history:
+            st.chat_message(role).write(msg)
+
+        user_msg = st.chat_input("Ask a question about this trip…")
+        if user_msg:
+            st.session_state.chat_history.append(("user", user_msg))
+            with st.chat_message("assistant"):
+                reply = ask_itinerary_chat(result["chat_id"], user_msg)
+                st.write(reply)
+            st.session_state.chat_history.append(("assistant", reply))
 
 # ─────────────────────────────  SIDEBAR  ────────────────────────────────────
 st.sidebar.header("📁 Saved itineraries")
@@ -70,25 +89,26 @@ if sel_name and st.sidebar.button("Open"):
     loaded = _load_itinerary(sel_name)
     st.session_state["last_prefs"]  = loaded["prefs"]
     st.session_state["last_result"] = loaded["data"]
+    st.session_state["chat_id"]     = loaded["data"].get("chat_id")
+    st.session_state["chat_history"] = []
     st.session_state["view_only"]   = True
     st.toast(f"Loaded “{sel_name}”")
-    st.rerun()                       # restart script so main panel updates
+    st.rerun()
 
 st.sidebar.markdown("---")
 st.sidebar.caption("Files live in local ‘saved_itineraries/’")
 
-
-# ─────────────────────  VIEW-ONLY MODE (opened file)  ──────────────────────
+# ─────────────────────  VIEW-ONLY MODE  ─────────────────────────────────────
 if st.session_state["view_only"] and st.session_state["last_result"]:
     _render_itinerary(st.session_state["last_prefs"],
                       st.session_state["last_result"])
 
     if st.button("🔄  Back to generator"):
         st.session_state["view_only"] = False
+        st.session_state["chat_history"] = []
         st.rerun()
 
-    st.stop()           # nothing below runs while viewing a saved file
-
+    st.stop()
 
 # ─────────────────────────────  MAIN UI FORM  ───────────────────────────────
 dest_choices = sorted(d["name"] for d in get_popular_destinations())
@@ -98,51 +118,41 @@ st.title("Travel-Itinerary-Pitcher ✈️")
 
 prefs: dict = {}
 
-# ── Destination (with free-text fallback) ───────────────────────────────────
 chosen = st.selectbox(
     "Destination",
     dest_choices,
     index=0 if dest_choices else None,
     placeholder="Choose a destination…" if not dest_choices else None,
 )
+prefs["destination"] = st.text_input("Type your destination") if chosen == "Other…" else chosen
 
-if chosen == "Other…":
-    custom_dest = st.text_input("Type your destination")
-    prefs["destination"] = custom_dest.strip()
-else:
-    prefs["destination"] = chosen
-
-# ── Interests, budget, days ────────────────────────────────────────────────
 prefs["interests"] = st.multiselect(
     "Interests",
     ["culture", "food", "nature", "nightlife", "history", "adventure"],
 )
-prefs["budget_level"] = st.selectbox(
-    "Budget level", ["budget", "moderate", "luxury"]
-)
+prefs["budget_level"] = st.selectbox("Budget level", ["budget", "moderate", "luxury"])
 prefs["trip_duration"] = st.slider("Duration (days)", 1, 14, 5)
-
 
 # ─────────────────────────────  GENERATE  ───────────────────────────────────
 if st.button("Generate"):
-    if not prefs["destination"]:
-        st.warning("Please choose a destination first.")
+    if not prefs["destination"].strip():
+        st.warning("Please choose or type a destination first.")
         st.stop()
 
     with st.spinner("Cooking up your itinerary…"):
         result = generate_itinerary(prefs)
 
-    st.session_state["last_prefs"]  = prefs
-    st.session_state["last_result"] = result
-    st.session_state["view_only"]   = False   # stay in edit mode
-    st.rerun()                                 # refresh page with results
-
+    st.session_state["last_prefs"]   = prefs
+    st.session_state["last_result"]  = result
+    st.session_state["chat_id"]      = result.get("chat_id")
+    st.session_state["chat_history"] = []
+    st.session_state["view_only"]    = False
+    st.rerun()
 
 # ─────────────────────────────  SHOW RESULT  ────────────────────────────────
 if st.session_state["last_result"]:
     _render_itinerary(st.session_state["last_prefs"],
                       st.session_state["last_result"])
-
 
 # ─────────────────────────────  SAVE SECTION  ───────────────────────────────
 if not st.session_state["view_only"] and st.session_state["last_result"]:
@@ -163,4 +173,4 @@ if not st.session_state["view_only"] and st.session_state["last_result"]:
                             st.session_state["last_prefs"],
                             st.session_state["last_result"])
             st.success(f"Saved as “{fname}.json”")
-            st.rerun()                # refresh sidebar list
+            st.rerun()

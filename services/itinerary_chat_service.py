@@ -86,6 +86,7 @@ class ItineraryChatService:
         except Exception as e:
             logger.error(f"Error initializing Gemini chat service: {e}")
             self.model = None
+
     
     def _extract_urls_from_markdown(self, text: str) -> List[str]:
         """Extract URLs from markdown links [text](url)"""
