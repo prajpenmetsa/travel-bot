@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 def load_api_keys() -> Dict[str, str]:
     """Return a dict with all API keys, trying ENV first and then config.json."""
     keys = {
-        "OPENTRIPMAP_API_KEY": os.getenv("OPENTRIPMAP_API_KEY"),
+        "FOURSQUARE_API_KEY": os.getenv("FOURSQUARE_API_KEY"),
         "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY"),
     }
 
@@ -132,7 +132,7 @@ def generate_itinerary(preferences: Dict[str, Any]) -> Dict[str, Any]:
         keys = load_api_keys()
 
         # Instantiate services
-        loc_service = LocationService(api_key=keys["OPENTRIPMAP_API_KEY"])
+        loc_service = LocationService(api_key=keys["FOURSQUARE_API_KEY"])
         exp_service = ExperienceService(loc_service)
         bud_service = BudgetService()
         nar_service = NarrativeService(api_key=keys["GEMINI_API_KEY"])
