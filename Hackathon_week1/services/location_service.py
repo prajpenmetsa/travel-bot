@@ -1,5 +1,5 @@
 """
-Location Service - Handles retrieval of location data from OpenTripMap API.
+Location Service - Handles retrieval of location data from Foursquare API.
 """
 
 import os
@@ -16,11 +16,11 @@ class LocationService:
     
     def __init__(self, api_key: Optional[str] = None):
         """Initialize with API key and data cache"""
-        self.api_key = api_key or os.environ.get("OPENTRIPMAP_API_KEY")
+        self.api_key = api_key or os.environ.get("FOURSQUARE_API_KEY")
         if not self.api_key:
-            logger.warning("OpenTripMap API key not found. Some features may be limited.")
+            logger.warning("Foursquare API key not found. Some features may be limited.")
         
-        self.base_url = "https://api.opentripmap.com/0.1/en/places"
+        self.base_url = "https://api.foursquare.com/v3"
         self.cache = {}
         self.try_load_cache()
     
@@ -57,32 +57,71 @@ class LocationService:
             return self._get_fallback_geoname(location)
         
         try:
-            url = f"{self.base_url}/geoname"
-            params = {
-                "name": location,
-                "apikey": self.api_key,
+            # Using Foursquare geocoding endpoint
+            url = f"{self.base_url}/places/geocode"
+            headers = {
+                "Accept": "application/json",
+                "Authorization": self.api_key
             }
-            response = requests.get(url, params=params)
+            params = {
+                "query": location,
+                "limit": 1
+            }
+            
+            response = requests.get(url, headers=headers, params=params)
             response.raise_for_status()
             data = response.json()
             
-            # Cache the result
-            self.cache[cache_key] = data
-            self.save_cache()
-            
-            return data
+            # Extract location data
+            if data and "results" in data and len(data["results"]) > 0:
+                result = data["results"][0]
+                geo_data = {
+                    "name": location,
+                    "country": result.get("address", {}).get("country", "Unknown"),
+                    "lat": result.get("geocodes", {}).get("main", {}).get("latitude", 0),
+                    "lon": result.get("geocodes", {}).get("main", {}).get("longitude", 0),
+                }
+                
+                # Cache the result
+                self.cache[cache_key] = geo_data
+                self.save_cache()
+                
+                return geo_data
+            else:
+                return self._get_fallback_geoname(location)
+                
         except Exception as e:
             logger.error(f"Error fetching geoname for {location}: {e}")
             return self._get_fallback_geoname(location)
     
     def _get_fallback_geoname(self, location: str) -> Dict[str, Any]:
         """Fallback when API is unavailable"""
-        return {
-            "name": location,
-            "country": "Unknown",
-            "lat": 0,
-            "lon": 0,
+        # Some common city coordinates
+        location_data = {
+            "delhi": {"lat": 28.7041, "lon": 77.1025, "country": "India"},
+            "new york": {"lat": 40.7128, "lon": -74.0060, "country": "United States"},
+            "london": {"lat": 51.5072, "lon": -0.1276, "country": "United Kingdom"},
+            "paris": {"lat": 48.8566, "lon": 2.3522, "country": "France"},
+            "tokyo": {"lat": 35.6762, "lon": 139.6503, "country": "Japan"},
+            # Add more cities as needed
         }
+        
+        loc_lower = location.lower()
+        if loc_lower in location_data:
+            data = location_data[loc_lower]
+            return {
+                "name": location,
+                "country": data["country"],
+                "lat": data["lat"],
+                "lon": data["lon"],
+            }
+        else:
+            return {
+                "name": location,
+                "country": "Unknown",
+                "lat": 0,
+                "lon": 0,
+            }
     
     def get_points_of_interest(self, location: str, interests: List[str], limit: int = 10) -> List[Dict[str, Any]]:
         """Get points of interest for a location based on user interests"""
@@ -101,45 +140,48 @@ class LocationService:
             geoname = self.get_geoname(location)
             lat, lon = geoname.get("lat", 0), geoname.get("lon", 0)
             
-            # Convert interests to OpenTripMap categories
-            kinds = self._map_interests_to_kinds(interests)
+            if lat == 0 and lon == 0:
+                logger.warning(f"Could not find coordinates for {location}, using fallback POIs")
+                return self._get_fallback_poi(location, interests)
             
-            # Get radius based on whether it's a city or country
-            radius = 5000  # Default for city (5km)
+            # Convert interests to Foursquare categories
+            categories = self._map_interests_to_categories(interests)
             
             # Get points of interest
-            url = f"{self.base_url}/radius"
+            url = f"{self.base_url}/places/search"
+            headers = {
+                "Accept": "application/json",
+                "Authorization": self.api_key
+            }
             params = {
-                "radius": radius,
-                "lon": lon,
-                "lat": lat,
-                "kinds": kinds,
-                "rate": "3h",  # Include highly-rated places
-                "limit": limit,
-                "apikey": self.api_key,
+                "ll": f"{lat},{lon}",
+                "radius": 5000,
+                "categories": categories,
+                "sort": "POPULARITY",
+                "limit": limit
             }
             
-            response = requests.get(url, params=params)
+            response = requests.get(url, headers=headers, params=params)
             response.raise_for_status()
             data = response.json()
             
-            # Cache the result
-            processed_data = [
-                {
+            # Process the Foursquare response
+            processed_data = []
+            for item in data.get("results", []):
+                poi_data = {
                     "name": item.get("name", "Unknown place"),
-                    "kinds": item.get("kinds", "").split(","),
-                    "distance": item.get("dist", 0),
-                    "xid": item.get("xid", "")
+                    "kinds": [cat.get("name", "unknown") for cat in item.get("categories", [])],
+                    "distance": item.get("distance", 0),
+                    "xid": item.get("fsq_id", ""),
+                    "description": item.get("description", ""),
+                    "address": ", ".join(item.get("location", {}).get("formatted_address", [])),
+                    "website": item.get("website", ""),
+                    "image": next((photo.get("prefix", "") + "original" + photo.get("suffix", "") 
+                                  for photo in item.get("photos", [])), "")
                 }
-                for item in data.get("features", [])
-            ]
+                processed_data.append(poi_data)
             
-            # Get details for top points of interest
-            for i, poi in enumerate(processed_data[:min(5, len(processed_data))]):
-                if poi.get("xid"):
-                    details = self._get_poi_details(poi["xid"])
-                    processed_data[i].update(details)
-            
+            # Cache the result
             self.cache[cache_key] = processed_data
             self.save_cache()
             
@@ -148,55 +190,28 @@ class LocationService:
             logger.error(f"Error fetching POIs for {location} with interests {interests}: {e}")
             return self._get_fallback_poi(location, interests)
     
-    def _get_poi_details(self, xid: str) -> Dict[str, Any]:
-        """Get details for a specific point of interest"""
-        cache_key = f"poi_details:{xid}"
-        
-        if cache_key in self.cache:
-            return self.cache[cache_key]
-        
-        try:
-            url = f"{self.base_url}/xid/{xid}"
-            params = {"apikey": self.api_key}
-            
-            response = requests.get(url, params=params)
-            response.raise_for_status()
-            data = response.json()
-            
-            details = {
-                "description": data.get("wikipedia_extracts", {}).get("text", ""),
-                "image": data.get("preview", {}).get("source", ""),
-                "address": data.get("address", {}).get("formatted", ""),
-                "website": data.get("url", "")
-            }
-            
-            self.cache[cache_key] = details
-            return details
-        except Exception as e:
-            logger.error(f"Error fetching POI details for {xid}: {e}")
-            return {}
-    
-    def _map_interests_to_kinds(self, interests: List[str]) -> str:
-        """Map user interests to OpenTripMap kinds"""
-        interest_to_kinds = {
-            "history": "historic,museums,architecture,religion,archaeology",
-            "food": "foods,breweries,wineries,restaurants,cafes",
-            "adventure": "sport,amusements,natural",
-            "culture": "cultural,museums,theatres_and_entertainments,religion",
-            "nature": "natural,parks,beaches,gardens",
-            "relaxation": "beaches,gardens,spas,parks",
-            "shopping": "commercial,shops,malls",
-            "nightlife": "bars,foods,theatres_and_entertainments,casinos",
-            "family": "amusements,zoos,parks,museums"
+    def _map_interests_to_categories(self, interests: List[str]) -> str:
+        """Map user interests to Foursquare category IDs"""
+        # Foursquare category IDs
+        interest_to_categories = {
+            "history": "16000,16007,16008", # landmarks, historic sites, monuments
+            "food": "13000,13065,13263", # food, restaurants, cafes
+            "adventure": "19000,19013,19014", # outdoors, trails, parks
+            "culture": "10000,10017,10018", # arts & entertainment, museums, theaters
+            "nature": "19000,19013,19014,19043", # outdoors, trails, parks, beaches
+            "relaxation": "14000,14001,14114", # professional services, spas, wellness
+            "shopping": "17000,17020,17090", # shops, malls, boutiques
+            "nightlife": "10032,10035,11000", # nightlife, bars, clubs
+            "family": "12000,12054,19012,10000" # attractions for kids, playgrounds, zoos, entertainment
         }
         
-        # Combine all relevant kinds
-        kinds_set = set()
+        # Combine all relevant categories
+        categories_list = []
         for interest in interests:
-            if interest in interest_to_kinds:
-                kinds_set.update(interest_to_kinds[interest].split(","))
+            if interest in interest_to_categories:
+                categories_list.append(interest_to_categories[interest])
         
-        return ",".join(kinds_set) if kinds_set else "interesting_places"
+        return ",".join(categories_list) if categories_list else "10000,13000,17000" # default categories
     
     def _get_fallback_poi(self, location: str, interests: List[str]) -> List[Dict[str, Any]]:
         """Fallback POI data when API is unavailable"""
