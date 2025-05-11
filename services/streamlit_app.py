@@ -47,10 +47,19 @@ def _render_itinerary(prefs: dict, result: dict) -> None:
     with st.expander("Budget breakdown"):
         st.write(result["narrative"]["budget_narrative"])
 
-    # ─── NEW: show quality score if available ──────────────────────────────
+    # ─── Quality score + breakdown ─────────────────────────────────────────
     if "scores" in result:
-        st.markdown(f"### ⭐ Planner score: **{result['scores']['total']}/100**")
-        st.progress(int(result["scores"]["total"]))
+        total = result["scores"]["total"]
+        st.markdown(f"### ⭐ Planner score: **{total}/100**")
+        st.progress(int(total))
+
+        with st.expander("Why this score?"):
+            for metric, val in result["scores"].items():
+                if metric == "total":
+                    continue
+                pct = f"{val*100:.1f}"
+                st.write(f"- **{metric.replace('_', ' ').title()}**: {pct}")
+
 
 # ─────────────────────────────  SIDEBAR  ────────────────────────────────────
 st.sidebar.header("📁 Saved itineraries")
@@ -82,22 +91,35 @@ if st.session_state["view_only"] and st.session_state["last_result"]:
 
 
 # ─────────────────────────────  MAIN UI FORM  ───────────────────────────────
-dest_names = sorted(d["name"] for d in get_popular_destinations())
+dest_choices = sorted(d["name"] for d in get_popular_destinations())
+dest_choices.append("Other…")
 
 st.title("Travel-Itinerary-Pitcher ✈️")
 
 prefs: dict = {}
-prefs["destination"] = st.selectbox(
+
+# ── Destination (with free-text fallback) ───────────────────────────────────
+chosen = st.selectbox(
     "Destination",
-    dest_names,
-    index=0 if dest_names else None,
-    placeholder="Choose a destination…" if not dest_names else None,
+    dest_choices,
+    index=0 if dest_choices else None,
+    placeholder="Choose a destination…" if not dest_choices else None,
 )
+
+if chosen == "Other…":
+    custom_dest = st.text_input("Type your destination")
+    prefs["destination"] = custom_dest.strip()
+else:
+    prefs["destination"] = chosen
+
+# ── Interests, budget, days ────────────────────────────────────────────────
 prefs["interests"] = st.multiselect(
     "Interests",
     ["culture", "food", "nature", "nightlife", "history", "adventure"],
 )
-prefs["budget_level"]  = st.selectbox("Budget level", ["budget", "moderate", "luxury"])
+prefs["budget_level"] = st.selectbox(
+    "Budget level", ["budget", "moderate", "luxury"]
+)
 prefs["trip_duration"] = st.slider("Duration (days)", 1, 14, 5)
 
 

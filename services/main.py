@@ -113,7 +113,5 @@ def main() -> None:
     result = generate_itinerary(prefs)
     print(f"\n★ Planner quality score: {result['scores']['total']}/100\n")
 
-
-
 if __name__ == "__main__":
     main()
