@@ -10,6 +10,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Dict, List, Any
+from functools import lru_cache
 
 # Third-party / internal services
 from preference_service import PreferenceService
@@ -150,6 +151,8 @@ def generate_itinerary(preferences: Dict[str, Any]) -> Dict[str, Any]:
         # ─── Initialise chat session (robust to method name) ────────────────
         chat_id = None
         if chat_service:
+            logger.info(f"API key available for chat: {bool(keys.get('GEMINI_API_KEY'))}")
+            
             if hasattr(chat_service, "start_session"):
                 chat_id = chat_service.start_session(
                     destination=dest,
@@ -169,6 +172,11 @@ def generate_itinerary(preferences: Dict[str, Any]) -> Dict[str, Any]:
                     experiences=exps,
                     scores=scores,
                 )
+                
+                # Store in the cache if successfully created
+                if chat_id:
+                    _CHAT_SERVICES[chat_id] = chat_service
+                    logger.info(f"Chat service stored in cache with ID {chat_id}")
             else:
                 logger.warning(
                     "ItineraryChatService has no start_session/create_session; chat disabled."
@@ -197,25 +205,32 @@ def generate_itinerary(preferences: Dict[str, Any]) -> Dict[str, Any]:
 # ------------------------------------------------------------------------------
 # Follow-up Q&A
 # ------------------------------------------------------------------------------
+_CHAT_SERVICES = {}
+
 def ask_itinerary_chat(chat_id: str, user_message: str) -> str:
     """
     Relay a user question to the existing itinerary chat session and
-    return the AI’s answer.
-
-    Parameters
-    ----------
-    chat_id : str
-        Session handle returned by `generate_itinerary`.
-    user_message : str
-        User’s question.
-
-    Returns
-    -------
-    str
-        Chatbot reply ready for display.
+    return the AI's answer.
     """
+    global _CHAT_SERVICES
     keys = load_api_keys()
-    chat_service = ItineraryChatService(api_key=keys["GEMINI_API_KEY"])
-    return chat_service.answer(chat_id, user_message)
+    
+    if not keys.get("GEMINI_API_KEY"):
+        return "I apologize, but the chat functionality is not available because the Gemini API key is missing."
+
+    # Use cached chat service if available, otherwise create new one
+    if chat_id in _CHAT_SERVICES:
+        logger.info(f"Using existing chat service for session {chat_id}")
+        chat_service = _CHAT_SERVICES[chat_id]
+    else:
+        logger.info(f"Creating new chat service for session {chat_id}")
+        chat_service = ItineraryChatService(api_key=keys["GEMINI_API_KEY"])
+        _CHAT_SERVICES[chat_id] = chat_service
+    
+    try:
+        return chat_service.answer(chat_id, user_message)
+    except Exception as e:
+        logger.error(f"Error in chat: {e}")
+        return f"I encountered an error while processing your question. Please try again later."
 
 
