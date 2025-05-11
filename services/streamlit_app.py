@@ -64,7 +64,9 @@ def _render_itinerary(prefs: dict, result: dict) -> None:
                 st.write(f"- **{metric.replace('_', ' ').title()}**: {pct}")
 
     # ─── Chat panel ─────────────────────────────────────────────────────────
-    if result.get("chat_id"):
+    chat_id = result.get("chat_id") or st.session_state.get("chat_id")
+    
+    if chat_id:
         st.markdown("---")
         st.subheader("💬 Ask the itinerary AI")
 
@@ -76,8 +78,18 @@ def _render_itinerary(prefs: dict, result: dict) -> None:
         if user_msg:
             st.session_state.chat_history.append(("user", user_msg))
             with st.chat_message("assistant"):
-                reply = ask_itinerary_chat(result["chat_id"], user_msg)
-                st.write(reply)
+                with st.spinner("Thinking..."):
+                    try:
+                        reply = ask_itinerary_chat(chat_id, user_msg)
+                        if "not available" in reply or "error" in reply.lower():
+                            st.error("There was an issue connecting to the chat service.")
+                            st.info("This could be due to API key issues or service limitations.")
+                            reply = "I'm sorry, but I'm having trouble accessing information about your itinerary right now."
+                        st.write(reply)
+                    except Exception as e:
+                        st.error(f"Error: {str(e)}")
+                        reply = "Sorry, I encountered an error while processing your request."
+                        st.write(reply)
             st.session_state.chat_history.append(("assistant", reply))
 
 # ─────────────────────────────  SIDEBAR  ────────────────────────────────────
@@ -174,3 +186,25 @@ if not st.session_state["view_only"] and st.session_state["last_result"]:
                             st.session_state["last_result"])
             st.success(f"Saved as “{fname}.json”")
             st.rerun()
+
+# Add this near the top after imports
+if st.sidebar.checkbox("Debug Mode"):
+    st.sidebar.subheader("API Key Status")
+    from app_core import load_api_keys
+    keys = load_api_keys()
+    
+    st.sidebar.write(f"Gemini API key: {'✓ Present' if keys.get('GEMINI_API_KEY') else '✗ Missing'}")
+    st.sidebar.write(f"Foursquare API key: {'✓ Present' if keys.get('FOURSQUARE_API_KEY') else '✗ Missing'}")
+    
+    st.sidebar.subheader("Session State")
+    st.sidebar.write(f"Chat ID: {st.session_state.get('chat_id')}")
+    
+    if st.session_state.get('chat_id') and st.sidebar.button("Test Chat Direct"):
+        from itinerary_chat_service import ItineraryChatService
+        chat_service = ItineraryChatService(api_key=keys.get("GEMINI_API_KEY"))
+        try:
+            response = chat_service.chat("Hello, can you respond with a test message?")
+            st.sidebar.success("Direct chat test successful!")
+            st.sidebar.write(response)
+        except Exception as e:
+            st.sidebar.error(f"Direct chat test failed: {str(e)}")
