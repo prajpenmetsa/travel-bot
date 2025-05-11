@@ -406,3 +406,100 @@ class ItineraryChatService:
         """Reset the conversation history"""
         self.chat_history = []
         logger.info("Conversation history has been reset")
+    
+    def create_session(self, prefs=None, narrative=None, budget=None, experiences=None, scores=None, **kwargs):
+        """Create a new chat session for an itinerary and return a session ID."""
+        import uuid
+        session_id = str(uuid.uuid4())
+        
+        # Store session data
+        self.session_data = {
+            'session_id': session_id,
+            'prefs': prefs,
+            'narrative': narrative,
+            'budget': budget,
+            'experiences': experiences,
+            'scores': scores
+        }
+        
+        # Add debug logging
+        logger.info(f"Creating chat session {session_id}")
+        logger.info(f"API key available: {bool(self.api_key)}")
+        
+        # Configure Gemini API
+        if self.api_key:
+            genai.configure(api_key=self.api_key)
+        
+        # Initialize the model directly - CRITICAL FIX
+        try:
+            self.model = genai.GenerativeModel('gemini-2.0-flash')
+            logger.info(f"Model initialized directly: {bool(self.model)}")
+        except Exception as e:
+            logger.error(f"Failed to initialize model directly: {e}")
+    
+        # Initialize the chain with the narrative
+        if narrative:
+            logger.info(f"Initializing chain with narrative type: {type(narrative)}")
+            try:
+                # Make sure we're initializing with proper structure
+                if isinstance(narrative, dict) and 'main_narrative' in narrative:
+                    self.initialize_chain(narrative)
+                    logger.info(f"Chain initialized successfully. Model ready: {bool(self.model)}")
+                else:
+                    # Fix for mismatched narrative format
+                    logger.warning(f"Narrative format incorrect: {narrative.keys() if isinstance(narrative, dict) else type(narrative)}")
+                    # Try to adapt the format if possible
+                    adapted_narrative = {
+                        'main_narrative': narrative if isinstance(narrative, str) else str(narrative),
+                        'daily_plans': [],
+                        'budget_narrative': ''
+                    }
+                    self.initialize_chain(adapted_narrative)
+                    logger.info("Used adapted narrative format")
+            except Exception as e:
+                logger.error(f"Failed to initialize chain: {e}")
+        else:
+            logger.warning("No narrative provided for chat initialization")
+        
+        return session_id
+
+    def answer(self, session_id, user_question):
+        """Answer a question in the given session."""
+        logger.info(f"Answering question in session {session_id}: {user_question}")
+        
+        # Check if model is initialized
+        if not self.model:
+            logger.warning("Model not initialized, attempting to fix...")
+            try:
+                # Initialize the model
+                if self.api_key:
+                    genai.configure(api_key=self.api_key)
+                    self.model = genai.GenerativeModel('gemini-2.0-flash')
+                    logger.info(f"Emergency model initialization successful: {bool(self.model)}")
+                else:
+                    logger.error("Cannot initialize model: API key missing")
+                    return "I'm sorry, but the chat service couldn't be initialized due to a missing API key."
+            except Exception as e:
+                logger.error(f"Emergency model initialization failed: {e}")
+                return "I apologize, but I'm having trouble accessing my knowledge. Please try again later."
+    
+        # Check if we need to reinitialize the itinerary content
+        if not self.itinerary_text and hasattr(self, 'session_data') and self.session_data.get('narrative'):
+            logger.info("Reinitializing itinerary context from session data")
+            try:
+                narrative = self.session_data.get('narrative')
+                if narrative:
+                    self.initialize_chain(narrative)
+                    logger.info(f"Context reinitialized, itinerary text length: {len(self.itinerary_text) if self.itinerary_text else 0}")
+                else:
+                    logger.warning("No narrative in session data for reinitialization")
+            except Exception as e:
+                logger.error(f"Failed to reinitialize context: {e}")
+
+        # For debugging: log context availability
+        logger.info(f"Context available: itinerary_text={bool(self.itinerary_text)}, URL contents={len(self.url_contents) > 0}, history={len(self.chat_history)}")
+        
+        # Now try to answer
+        result = self.chat(user_question)
+        logger.info(f"Answer generated successfully: {bool(result and len(result) > 0)}")
+        return result
