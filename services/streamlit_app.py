@@ -126,7 +126,7 @@ if st.session_state["view_only"] and st.session_state["last_result"]:
 dest_choices = sorted(d["name"] for d in get_popular_destinations())
 dest_choices.append("Other…")
 
-st.title("Travel-Itinerary-Pitcher ✈️")
+st.title("Travel Itinerary Pitcher ✈️")
 
 prefs: dict = {}
 
