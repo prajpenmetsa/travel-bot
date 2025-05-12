@@ -1,0 +1,6 @@
+streamlit>=1.34
+pydantic<2            # stick with v1 if you don’t want the breaking changes
+google-generativeai   # Gemini client
+beautifulsoup4
+requests
+python-dotenv         # if you load env vars from .env
