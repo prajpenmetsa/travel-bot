@@ -15,9 +15,25 @@ services/
 ├─ location_service.py
 ├─ narrative_service.py
 ├─ preference_service.py
-├─ streamlit_app.py         ← web UI
+├─ streamlit_app.py         ← web UI entry point
 ├─ main.py                  ← CLI entry point
-└─ data/…                   ← caches, destinations.json, etc.
+└─ data/…                   ← destinations.json, location_cache.json
+└─ saved_itineraries/…      ← saved itineraries stored as json files
+└─ generated_files/…        ← generated itineraries stored as md files
+└─ generated_files/…        ← generated itineraries stored as md files
+  ├─ init.py
+  ├─ prompts.py             ← templates for prompts to be used with the Gemini AI API
+└─ tests/… 
+  └─ fixtures/… 
+  └─ integration/… 
+  └─ unit/… 
+diagrams/
+├─ container-diagram.png
+├─ context-diagram.png
+├─ sequence-diagram.png
+Walkthrough_Hackathon1.pdf
+req.md                      ← requirements specifications document
+README.md
 ```
 
 # Install dependencies
