@@ -1,4 +1,4 @@
-# Travel-Itinerary-Pitcher ✈️
+# Travel Itinerary Pitcher ✈️
 
 Generate a multi-day travel plan, realistic budget, narrative write-up, an
 AI-evaluated quality score **and** chat with a Gemini-powered assistant about
