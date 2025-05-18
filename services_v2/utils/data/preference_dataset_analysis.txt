@@ -1,0 +1,59 @@
+=== TRAVEL DATASET ANALYSIS ===
+
+Total number of examples: 838
+
+=== TOKEN STATISTICS ===
+Maximum tokens in a description: 158
+Minimum tokens in a description: 27
+Average tokens per description: 65.54
+
+=== SENTENCE STATISTICS ===
+Maximum sentences in a description: 7
+Minimum sentences in a description: 1
+Average sentences per description: 2.53
+Average words per sentence: 26.60
+
+=== CLASS DISTRIBUTION ===
+nightlife: 332 examples (39.62%)
+culture: 308 examples (36.75%)
+nature: 295 examples (35.20%)
+family: 294 examples (35.08%)
+shopping: 292 examples (34.84%)
+food: 288 examples (34.37%)
+history: 263 examples (31.38%)
+relaxation: 215 examples (25.66%)
+vegetarian: 211 examples (25.18%)
+sustainable: 196 examples (23.39%)
+group_activities: 195 examples (23.27%)
+adventure: 185 examples (22.08%)
+instagram_worthy: 184 examples (21.96%)
+local_experience: 183 examples (21.84%)
+accessibility: 174 examples (20.76%)
+luxury: 170 examples (20.29%)
+night_owl: 162 examples (19.33%)
+budget_conscious: 159 examples (18.97%)
+early_riser: 148 examples (17.66%)
+off_beaten_path: 138 examples (16.47%)
+needs_breaks: 129 examples (15.39%)
+
+=== TOP LABEL COMBINATIONS ===
+nature, shopping, night_owl, group_activities: 3 examples (0.36%)
+history, food, culture, nature, budget_conscious, vegetarian: 2 examples (0.24%)
+culture, nightlife, luxury, vegetarian: 2 examples (0.24%)
+adventure, shopping, accessibility, night_owl, sustainable: 2 examples (0.24%)
+adventure, culture, night_owl, instagram_worthy: 2 examples (0.24%)
+culture, shopping, early_riser, off_beaten_path: 2 examples (0.24%)
+culture, nature, local_experience, luxury: 2 examples (0.24%)
+culture, shopping, luxury, needs_breaks: 2 examples (0.24%)
+history, culture, local_experience, off_beaten_path: 2 examples (0.24%)
+nature, shopping, budget_conscious, early_riser: 2 examples (0.24%)
+
+=== TOKEN LENGTH DISTRIBUTION ===
+0-9 tokens: 0 examples (0.00%)
+10-19 tokens: 0 examples (0.00%)
+20-29 tokens: 3 examples (0.36%)
+30-39 tokens: 81 examples (9.67%)
+40-49 tokens: 223 examples (26.61%)
+50-74 tokens: 299 examples (35.68%)
+75-99 tokens: 101 examples (12.05%)
+100+ tokens: 131 examples (15.63%)
