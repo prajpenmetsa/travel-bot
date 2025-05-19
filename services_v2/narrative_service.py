@@ -11,6 +11,7 @@ from utils.prompts import (
     DAY_PLAN_PROMPT_TEMPLATE,
     BUDGET_PROMPT_TEMPLATE
 )
+from itinerary_decoder_service import ItineraryDecoderService
 
 logger = logging.getLogger(__name__)
 
@@ -18,19 +19,21 @@ class NarrativeService:
     """Service for generating travel narratives and itinerary text."""
     
     def __init__(self, api_key: Optional[str] = None):
-        """
-        Initialize the narrative service with API key for AI models.
+        self.decoder = ItineraryDecoderService()
+
+        # """
+        # Initialize the narrative service with API key for AI models.
         
-        Parameters:
-        -----------
-        api_key : str
-            API key for AI text generation service (e.g., Gemini)
-        """
-        self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
-        if self.api_key:
-            genai.configure(api_key=self.api_key)
-        else:
-            logger.warning("Gemini API key not found. Using fallback narrative generation.")
+        # Parameters:
+        # -----------
+        # api_key : str
+        #     API key for AI text generation service (e.g., Gemini)
+        # """
+        # self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
+        # if self.api_key:
+        #     genai.configure(api_key=self.api_key)
+        # else:
+        #     logger.warning("Gemini API key not found. Using fallback narrative generation.")
     
     def generate_narrative(self, 
                          destination: str, 
@@ -67,71 +70,46 @@ class NarrativeService:
         points_of_interest = experiences.get("points_of_interest", [])
         poi_names = [poi.get("name", "Unnamed place") for poi in points_of_interest[:5]]
         
-        if not self.api_key:
-            return self._generate_fallback_narrative(
-                destination, interests, budget_level, trip_duration, experiences, budget
-            )
+        # if not self.api_key:
+        #     return self._generate_fallback_narrative(
+        #         destination, interests, budget_level, trip_duration, experiences, budget
+        #     )
         
         try:
-            # Format interests for prompt
             interests_str = ", ".join(interests)
             
-            # Format points of interest for prompt
-            poi_str = ", ".join(poi_names)
-            
-            # Create a prompt from template
-            prompt = NARRATIVE_PROMPT_TEMPLATE.format(
+            # Use Qwen decoder to generate full itinerary
+            full_itinerary = self.decoder.generate_itinerary(
                 destination=destination,
-                interests=interests_str,
-                budget_level=budget_level,
-                days=trip_duration,
-                points_of_interest=poi_str
+                duration=trip_duration,
+                budget=budget_level,
+                core_prefs=interests_str,
+                special_prefs="n/a"  # Optional, or derive from input
             )
-            
-            # Generate narrative with Gemini
-            model = genai.GenerativeModel('gemini-2.0-flash')
-            response = model.generate_content(prompt)
-            narrative = response.text
-            
-            # Generate detailed day plans
+
+            # Structure response to match existing output format
             daily_plans = []
             for day_num in range(1, trip_duration + 1):
-                day_prompt = DAY_PLAN_PROMPT_TEMPLATE.format(
-                    day_number=day_num,
-                    days_total=trip_duration,
-                    destination=destination,
-                    interests=interests_str,
-                    budget_level=budget_level
-                )
-                day_response = model.generate_content(day_prompt)
-                daily_plans.append({
-                    "day": day_num,
-                    "content": day_response.text
-                })
-            
-            # Generate budget narrative
-            budget_prompt = BUDGET_PROMPT_TEMPLATE.format(
-                days=trip_duration,
-                destination=destination,
-                budget_level=budget_level,
-                interests=interests_str
-            )
-            budget_response = model.generate_content(budget_prompt)
-            budget_narrative = budget_response.text
-            
-            # narrative dictionary
+                day_header = f"Day {day_num}:"
+                if day_header in full_itinerary:
+                    start = full_itinerary.index(day_header)
+                    end = full_itinerary.find(f"Day {day_num + 1}:", start) if day_num < trip_duration else len(full_itinerary)
+                    daily_content = full_itinerary[start:end].strip()
+                else:
+                    daily_content = f"Day {day_num}: No content found."
+                daily_plans.append({"day": day_num, "content": daily_content})
+
             narrative_dict = {
-                "main_narrative": narrative,
+                "main_narrative": full_itinerary.split("Day 1:")[0].strip(),
                 "daily_plans": daily_plans,
-                "budget_narrative": budget_narrative
+                "budget_narrative": f"This is a {budget_level} budget itinerary for {trip_duration} days in {destination}.",
             }
 
-            # Save as markdown file
             md_filename = self.save_itinerary_as_md(destination, trip_duration, budget_level, narrative_dict)
             narrative_dict["md_filename"] = md_filename
 
             return narrative_dict
-        
+
         except Exception as e:
             logger.error(f"Error generating narrative with Gemini: {e}")
             # return self._generate_fallback_narrative(
